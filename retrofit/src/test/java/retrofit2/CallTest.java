@@ -70,7 +70,7 @@ public final class CallTest {
     server.enqueue(new MockResponse().setBody("Hi"));
 
     Response<String> response = example.getString().execute();
-    assertThat(response.isSuccess()).isTrue();
+    assertThat(response.isSuccessful()).isTrue();
     assertThat(response.body()).isEqualTo("Hi");
   }
 
@@ -95,10 +95,10 @@ public final class CallTest {
         t.printStackTrace();
       }
     });
-    assertTrue(latch.await(2, SECONDS));
+    assertTrue(latch.await(10, SECONDS));
 
     Response<String> response = responseRef.get();
-    assertThat(response.isSuccess()).isTrue();
+    assertThat(response.isSuccessful()).isTrue();
     assertThat(response.body()).isEqualTo("Hi");
   }
 
@@ -112,7 +112,7 @@ public final class CallTest {
     server.enqueue(new MockResponse().setResponseCode(404).setBody("Hi"));
 
     Response<String> response = example.getString().execute();
-    assertThat(response.isSuccess()).isFalse();
+    assertThat(response.isSuccessful()).isFalse();
     assertThat(response.code()).isEqualTo(404);
     assertThat(response.errorBody().string()).isEqualTo("Hi");
   }
@@ -138,10 +138,10 @@ public final class CallTest {
         t.printStackTrace();
       }
     });
-    assertTrue(latch.await(2, SECONDS));
+    assertTrue(latch.await(10, SECONDS));
 
     Response<String> response = responseRef.get();
-    assertThat(response.isSuccess()).isFalse();
+    assertThat(response.isSuccessful()).isFalse();
     assertThat(response.code()).isEqualTo(404);
     assertThat(response.errorBody().string()).isEqualTo("Hi");
   }
@@ -184,7 +184,7 @@ public final class CallTest {
         latch.countDown();
       }
     });
-    assertTrue(latch.await(2, SECONDS));
+    assertTrue(latch.await(10, SECONDS));
 
     Throwable failure = failureRef.get();
     assertThat(failure).isInstanceOf(IOException.class);
@@ -247,7 +247,7 @@ public final class CallTest {
         latch.countDown();
       }
     });
-    assertTrue(latch.await(2, SECONDS));
+    assertTrue(latch.await(10, SECONDS));
 
     assertThat(failureRef.get()).isInstanceOf(UnsupportedOperationException.class)
         .hasMessage("I am broken!");
@@ -362,7 +362,7 @@ public final class CallTest {
         latch.countDown();
       }
     });
-    assertTrue(latch.await(2, SECONDS));
+    assertTrue(latch.await(10, SECONDS));
 
     assertThat(failureRef.get()).isInstanceOf(UnsupportedOperationException.class)
         .hasMessage("I am broken!");
@@ -622,7 +622,7 @@ public final class CallTest {
         latch.countDown();
       }
     });
-    latch.await();
+    assertTrue(latch.await(10, SECONDS));
     assertThat(failureRef.get()).hasMessage("Canceled");
   }
 
@@ -670,7 +670,41 @@ public final class CallTest {
     call.cancel();
     assertThat(call.isCanceled()).isTrue();
 
-    assertTrue(latch.await(2, SECONDS));
+    assertTrue(latch.await(10, SECONDS));
+    assertThat(failureRef.get()).isInstanceOf(IOException.class).hasMessage("Canceled");
+  }
+
+  @Test public void cancelOkHttpRequest() throws InterruptedException {
+    OkHttpClient client = new OkHttpClient();
+    Retrofit retrofit = new Retrofit.Builder()
+        .baseUrl(server.url("/"))
+        .client(client)
+        .addConverterFactory(new ToStringConverterFactory())
+        .build();
+    Service service = retrofit.create(Service.class);
+
+    server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE));
+
+    Call<String> call = service.getString();
+
+    final AtomicReference<Throwable> failureRef = new AtomicReference<>();
+    final CountDownLatch latch = new CountDownLatch(1);
+    call.enqueue(new Callback<String>() {
+      @Override public void onResponse(Call<String> call, Response<String> response) {
+        throw new AssertionError();
+      }
+
+      @Override public void onFailure(Call<String> call, Throwable t) {
+        failureRef.set(t);
+        latch.countDown();
+      }
+    });
+
+    // Cancel the underlying HTTP Call. Should be reflected accurately back in the Retrofit Call.
+    client.dispatcher().cancelAll();
+    assertThat(call.isCanceled()).isTrue();
+
+    assertTrue(latch.await(10, SECONDS));
     assertThat(failureRef.get()).isInstanceOf(IOException.class).hasMessage("Canceled");
   }
 
@@ -825,7 +859,7 @@ public final class CallTest {
       @Override public void onFailure(Call<String> call, Throwable t) {
       }
     });
-    assertTrue(latch.await(1, SECONDS));
+    assertTrue(latch.await(10, SECONDS));
   }
 
   @Test public void requestThrowingBeforeEnqueueFailsEnqueue()
@@ -866,7 +900,7 @@ public final class CallTest {
         latch.countDown();
       }
     });
-    assertTrue(latch.await(1, SECONDS));
+    assertTrue(latch.await(10, SECONDS));
   }
 
   @Test public void requestAfterEnqueueReturnsCachedValue() throws IOException,
@@ -898,7 +932,7 @@ public final class CallTest {
       @Override public void onFailure(Call<String> call, Throwable t) {
       }
     });
-    assertTrue(latch.await(1, SECONDS));
+    assertTrue(latch.await(10, SECONDS));
 
     call.request();
     assertThat(writeCount.get()).isEqualTo(1);
@@ -934,7 +968,7 @@ public final class CallTest {
         latch.countDown();
       }
     });
-    assertTrue(latch.await(1, SECONDS));
+    assertTrue(latch.await(10, SECONDS));
 
     try {
       call.request();

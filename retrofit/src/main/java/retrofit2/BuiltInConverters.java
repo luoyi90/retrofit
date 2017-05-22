@@ -27,10 +27,9 @@ final class BuiltInConverters extends Converter.Factory {
   public Converter<ResponseBody, ?> responseBodyConverter(Type type, Annotation[] annotations,
       Retrofit retrofit) {
     if (type == ResponseBody.class) {
-      if (Utils.isAnnotationPresent(annotations, Streaming.class)) {
-        return StreamingResponseBodyConverter.INSTANCE;
-      }
-      return BufferingResponseBodyConverter.INSTANCE;
+      return Utils.isAnnotationPresent(annotations, Streaming.class)
+          ? StreamingResponseBodyConverter.INSTANCE
+          : BufferingResponseBodyConverter.INSTANCE;
     }
     if (type == Void.class) {
       return VoidResponseBodyConverter.INSTANCE;
@@ -41,26 +40,10 @@ final class BuiltInConverters extends Converter.Factory {
   @Override
   public Converter<?, RequestBody> requestBodyConverter(Type type,
       Annotation[] parameterAnnotations, Annotation[] methodAnnotations, Retrofit retrofit) {
-    if (RequestBody.class.isAssignableFrom(Types.getRawType(type))) {
+    if (RequestBody.class.isAssignableFrom(Utils.getRawType(type))) {
       return RequestBodyConverter.INSTANCE;
     }
     return null;
-  }
-
-  @Override public Converter<?, String> stringConverter(Type type, Annotation[] annotations,
-      Retrofit retrofit) {
-    if (type == String.class) {
-      return StringConverter.INSTANCE;
-    }
-    return null;
-  }
-
-  static final class StringConverter implements Converter<String, String> {
-    static final StringConverter INSTANCE = new StringConverter();
-
-    @Override public String convert(String value) throws IOException {
-      return value;
-    }
   }
 
   static final class VoidResponseBodyConverter implements Converter<ResponseBody, Void> {

@@ -65,7 +65,9 @@ public final class ListenableFutureTest {
       future.get();
       fail();
     } catch (ExecutionException e) {
-      assertThat(e.getCause()).isInstanceOf(HttpException.class)
+      assertThat(e.getCause())
+          .isInstanceOf(HttpException.class) // Required for backwards compatibility.
+          .isInstanceOf(retrofit2.HttpException.class)
           .hasMessage("HTTP 404 Client Error");
     }
   }
@@ -87,7 +89,7 @@ public final class ListenableFutureTest {
 
     ListenableFuture<Response<String>> future = service.response();
     Response<String> response = future.get();
-    assertThat(response.isSuccess()).isTrue();
+    assertThat(response.isSuccessful()).isTrue();
     assertThat(response.body()).isEqualTo("Hi");
   }
 
@@ -96,7 +98,7 @@ public final class ListenableFutureTest {
 
     ListenableFuture<Response<String>> future = service.response();
     Response<String> response = future.get();
-    assertThat(response.isSuccess()).isFalse();
+    assertThat(response.isSuccessful()).isFalse();
     assertThat(response.errorBody().string()).isEqualTo("Hi");
   }
 
